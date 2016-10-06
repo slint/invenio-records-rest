@@ -31,7 +31,6 @@ import json
 import pytest
 from invenio_pidstore.models import PersistentIdentifier
 from invenio_records import Record
-from werkzeug.exceptions import BadRequest
 
 from invenio_records_rest.errors import StyleNotFoundRESTError
 from invenio_records_rest.serializers.citeproc import CiteprocSerializer, \
@@ -51,8 +50,8 @@ def get_test_data():
     return pid, record
 
 
-class TestSerializer(object):
-    """TestSerializer"""
+class TestCslJsonSerializer(object):
+    """Test CSL JSON Serializer."""
 
     def serialize(self, pid, record, links_factory=None):
         csl_json = {}
@@ -66,11 +65,34 @@ class TestSerializer(object):
         return json.dumps(csl_json)
 
 
-def test_serialize():
-    """Test Citeproc serialization."""
+class TestBibTexSerializer(object):
+    """Test BibTex Serializer."""
+
+    def serialize(self, pid, record, links_factory=None):
+        bibtex_template = (
+            '@{type}{{{id},'
+            '  author = {{{authors}}},'
+            '  title  = {{{{{title}}}}},'
+            '  year   = {year},'
+            '}}'
+        )
+
+        result = bibtex_template.format(
+            id=pid.pid_value,
+            type=record['type'],
+            authors=', '.join([' '.join((a['given_name'], a['family_name']))
+                               for a in record['creators']]),
+            title=record['title'],
+            year=record['publication_date'][0],
+        )
+        return result
+
+
+def test_csl_serialization():
+    """Test CSL Citeproc serialization."""
     pid, record = get_test_data()
 
-    serializer = CiteprocSerializer(TestSerializer())
+    serializer = CiteprocSerializer(TestCslJsonSerializer())
     data = serializer.serialize(pid, record)
     assert 'Citeproc test' in data
     assert 'Doe, J.' in data
@@ -78,11 +100,22 @@ def test_serialize():
     assert '2016.' in data
 
 
+def test_bibtex_serialization():
+    """Test BibTex Citeproc serialization."""
+    pid, record = get_test_data()
+
+    serializer = CiteprocSerializer(TestBibTexSerializer(), 'bibtex')
+    data = serializer.serialize(pid, record)
+    assert 'Citeproc test' in data
+    assert 'John Doe, J.S.,' in data
+    assert '2016.' in data
+
+
 def test_serializer_args():
     """Test Citeproc serialization arguments."""
     pid, record = get_test_data()
 
-    serializer = CiteprocSerializer(TestSerializer())
+    serializer = CiteprocSerializer(TestCslJsonSerializer())
     data = serializer.serialize(pid, record, style='science')
     assert '1.' in data
     assert 'J. Doe,' in data
@@ -95,7 +128,7 @@ def test_nonexistent_style():
     """Test Citeproc exceptions."""
     pid, record = get_test_data()
 
-    serializer = CiteprocSerializer(TestSerializer())
+    serializer = CiteprocSerializer(TestCslJsonSerializer())
     with pytest.raises(StyleNotFoundError):
         serializer.serialize(pid, record, style='non-existent')
 
@@ -104,7 +137,7 @@ def test_serializer_in_request(app):
     """Test Citeproc serialization while in a request context."""
     pid, record = get_test_data()
 
-    serializer = CiteprocSerializer(TestSerializer())
+    serializer = CiteprocSerializer(TestCslJsonSerializer())
 
     with app.test_request_context(query_string={'style': 'science'}):
         data = serializer.serialize(pid, record)

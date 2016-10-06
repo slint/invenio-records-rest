@@ -34,6 +34,7 @@ from citeproc import Citation, CitationItem, CitationStylesBibliography, \
 from citeproc.source.bibtex import BibTeX
 from citeproc.source.json import CiteProcJSON
 from flask import has_request_context, request
+from six import StringIO
 from webargs import fields
 from webargs.flaskparser import FlaskParser
 
@@ -62,7 +63,7 @@ class CiteprocSerializer(object):
     """The `citeproc-py` library supports by default the 'harvard1' style."""
 
     _default_locale = 'en-US'
-    """The `citeproc-py` library supports by default the 'harvard1' style."""
+    """The `citeproc-py` library supports by default the 'en-US' locale."""
 
     _user_args = {
         'style': fields.Str(missing=_default_style),
@@ -121,7 +122,7 @@ class CiteprocSerializer(object):
         if self.record_format == 'csl':
             return CiteProcJSON([json.loads(data)])
         elif self.record_format == 'bibtex':
-            return BibTeX(data)
+            return BibTeX(StringIO(data))
 
     def _clean_result(self, text):
         """Remove double spaces and punctuation."""
