@@ -87,4 +87,5 @@ class RecordMetadataSchemaJSONV1(OriginalKeysMixin):
         if pid_value:
             pid_field = current_app.config['PIDSTORE_RECID_FIELD']
             data.setdefault(pid_field, pid_value)
+            data.pop('pid')
         return data
